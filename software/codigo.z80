@@ -1,0 +1,91 @@
+; ====================================================================
+; Proyecto Micro CYMN
+; ====================================================================
+            ORG 0000h
+INICIO:
+            ; Configurar 8255 (Puerto de control 43h)
+            LD A, 90h
+            OUT (43h), A
+            
+            LD HL, 0F800h  ; Puntero a memoria SRAM
+            LD B, 0        ; Contador de letras
+            
+            LD DE, MSG_REQ
+            CALL IMPRIMIR_STR
+
+LEER_TECLA:
+            IN A, (40h)    ; Leer del Puerto A (Teclado fisico)
+            CP 0
+            JR Z, LEER_TECLA
+            
+            CP 0Dh         ; Enter
+            JR Z, FIN_LECTURA
+            CP 20h         ; Espacio
+            JR Z, ES_ESPACIO
+
+            CP 41h         ; < 'A'
+            JR C, ES_ERROR
+            CP 5Bh         ; <= 'Z'
+            JR C, ES_LETRA
+            CP 61h         ; < 'a'
+            JR C, ES_ERROR
+            CP 7Bh         ; > 'z'
+            JR NC, ES_ERROR
+
+ES_LETRA:
+            INC B
+ES_ESPACIO:
+            LD (HL), A
+            INC HL
+            OUT (41h), A   ; Imprimir en Puerto B (Pantalla)
+            
+            LD C, 0FFh     ; Pausa anti-rebote de teclado
+PAUSA:      DEC C
+            JR NZ, PAUSA
+            
+            JR LEER_TECLA
+
+ES_ERROR:
+            LD DE, MSG_ERR
+            CALL IMPRIMIR_STR
+            JR LEER_TECLA
+
+FIN_LECTURA:
+            LD DE, MSG_RES
+            CALL IMPRIMIR_STR
+            LD A, B
+            CALL IMPRIMIR_NUM
+            HALT
+
+IMPRIMIR_STR:
+            LD A, (DE)
+            CP 0
+            RET Z
+            OUT (41h), A
+            INC DE
+            JR IMPRIMIR_STR
+
+IMPRIMIR_NUM:
+            LD C, 0
+CONTAR_DECENAS:
+            CP 10
+            JR C, MOSTRAR_DIGITOS
+            SUB 10
+            INC C
+            JR CONTAR_DECENAS
+MOSTRAR_DIGITOS:
+            LD D, A
+            LD A, C
+            ADD A, 30h
+            OUT (41h), A
+            LD A, D
+            ADD A, 30h
+            OUT (41h), A
+            RET
+
+MSG_REQ:    DEFM "Ingrese su nombre y apellidos: "
+            DB 0
+MSG_ERR:    DEFM " Error. Ingrese de nuevo: "
+            DB 0
+MSG_RES:    DEFM " Cantidad de letras: "
+            DB 0
